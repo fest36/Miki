@@ -226,8 +226,8 @@ async def handle_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         logger.error(f"Ошибка отправки сообщения: {e}")
         await update.message.reply_text("Что-то пошло не так с ответом. Попробуй спросить проще!")
 
-# Основная функция
-def main() -> None:
+# Асинхронная функция для запуска приложения
+async def run_application():
     # Проверка наличия ключей
     if not TELEGRAM_BOT_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN не задан в файле .env. Получи его через @BotFather!")
@@ -237,8 +237,9 @@ def main() -> None:
         raise ValueError("GOOGLE_API_KEY или GOOGLE_CSE_ID не заданы в файле .env. Получи их на https://console.developers.google.com/ и https://cse.google.com/cse/all!")
 
     # Инициализация базы данных
-    asyncio.run(init_db())
+    await init_db()
 
+    # Создание приложения
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("setlang", set_language))
@@ -246,7 +247,13 @@ def main() -> None:
     application.add_handler(CommandHandler("ask", handle_ask))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ask))
     logger.info("Бот Miki запущен")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+    # Запуск приложения с polling
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+# Основная функция
+def main():
+    asyncio.run(run_application())
 
 if __name__ == "__main__":
     main()
