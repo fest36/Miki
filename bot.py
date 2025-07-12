@@ -72,10 +72,19 @@ async def query_openrouter(prompt: str, model: str = "deepseek/deepseek-chat-v3-
                     response.raise_for_status()
                     data = await response.json()
                     return data["choices"][0]["message"]["content"]
+        except aiohttp.ClientResponseError as e:
+            logger.error(f"Попытка {attempt + 1} не удалась: {e.status}, message='{e.message}', url='{e.request_info.url}'")
+            if e.status == 401:
+                return "Ошибка: Ключ OpenRouter недействителен. Пожалуйста, проверь OPENROUTER_API_KEY в настройках."
+            if e.status == 404:
+                return f"Ошибка: Модель '{model}' не найдена на OpenRouter. Попробуй другую модель, например, 'deepseek/deepseek'."
+            if attempt == retries - 1:
+                return "Ошибка связи с OpenRouter API. Попробуй позже, ладно?"
+            await asyncio.sleep(1)
         except aiohttp.ClientError as e:
             logger.error(f"Попытка {attempt + 1} не удалась: {e}")
             if attempt == retries - 1:
-                return "Ошибка связи с API. Попробуй позже, ладно?"
+                return "Ошибка связи с OpenRouter API. Попробуй позже, ладно?"
             await asyncio.sleep(1)
 
 # Асинхронный поиск через Google Custom Search API
@@ -267,17 +276,13 @@ async def run_application():
 # Основная функция
 def main():
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Если цикл уже запущен (как на Render), создаём задачу
-            loop.create_task(run_application())
-        else:
-            # Если цикл не запущен, используем asyncio.run
-            asyncio.run(run_application())
-    except RuntimeError as e:
-        logger.error(f"Ошибка цикла событий: {e}")
-        # Если цикл уже запущен, создаём задачу
-        asyncio.get_event_loop().create_task(run_application())
+        loop = asyncio.get_running_loop()
+        loop.create_task(run_application())
+    except RuntimeError:
+        # Если цикл не запущен, создаём новый
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(run_application())
 
 if __name__ == "__main__":
     main()
