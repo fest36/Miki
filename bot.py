@@ -248,12 +248,36 @@ async def run_application():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ask))
     logger.info("Бот Miki запущен")
 
-    # Запуск приложения с polling
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Инициализация приложения
+    await application.initialize()
+    # Запуск polling
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+
+    # Держим приложение запущенным
+    try:
+        while True:
+            await asyncio.sleep(3600)  # Спим час, чтобы не нагружать CPU
+    except KeyboardInterrupt:
+        logger.info("Остановка бота...")
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
 # Основная функция
 def main():
-    asyncio.run(run_application())
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Если цикл уже запущен (как на Render), создаём задачу
+            loop.create_task(run_application())
+        else:
+            # Если цикл не запущен, используем asyncio.run
+            asyncio.run(run_application())
+    except RuntimeError as e:
+        logger.error(f"Ошибка цикла событий: {e}")
+        # Если цикл уже запущен, создаём задачу
+        asyncio.get_event_loop().create_task(run_application())
 
 if __name__ == "__main__":
     main()
